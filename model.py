@@ -1,0 +1,251 @@
+# gurobi_hsr_model.py
+import math
+import itertools
+import pandas as pd
+import numpy as np
+from gurobipy import Model, GRB, quicksum
+
+
+CSV_PATH = (
+    "data/cities_with_coordinates.csv" 
+)
+POP_THRESHOLD = 50000  # keep only cities with population >= 50,000
+MAX_EDGE_DIST_KM = (
+    350  # only consider connecting cities within this straight-line distance
+)
+EARTH_R = 6371.0  # Earth radius in km (used to convert lat/lon -> chord)
+
+# Costs & fares (change to experiment)
+COST_PER_KM = 80_000_000.0  # CAD per kilometre (construction)
+STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
+STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
+FARE_PER_KM = 0.15  # CAD per passenger per km (European-HSR-like)
+AVG_TRIP_KM = 150.0  # assume average trip length for revenue calc (you can refine)
+OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
+CAPTURE_RATE = 0.005  # baseline monthly ridership fraction of population (0.5%)
+
+SOURCE_NAME = "Toronto"  # must match substring in City_Name column
+SINK_NAME = "Québec"  # or "Québec", match substring
+
+
+def chord_distance_km(lat1_deg, lon1_deg, lat2_deg, lon2_deg):
+    """
+    Straight-line chord distance on sphere (approx Euclidean distance between two points on Earth's surface).
+    This is a close straight-line approximation and returns km.
+    """
+    # convert to radians
+    lat1 = math.radians(lat1_deg)
+    lon1 = math.radians(lon1_deg)
+    lat2 = math.radians(lat2_deg)
+    lon2 = math.radians(lon2_deg)
+    # central angle
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = (
+        math.sin(dlat / 2.0) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
+    )
+    central = 2 * math.asin(min(1.0, math.sqrt(a)))
+    # chord length (straight line through sphere) approximated by arc length (R * central)
+    # For "Euclidean on sphere surface", R*central is arc distance (great-circle). This is appropriate
+    # as the straight-line approximation for the rail corridor on Earth's surface.
+    return EARTH_R * central
+
+
+df = pd.read_csv(CSV_PATH)
+cols = {c.lower(): c for c in df.columns}
+
+
+def col(name):
+    key = name.lower()
+    return cols.get(key, name)  # return original if not found
+
+
+cn_col = col("City_Name")
+prov_col = col("Province")
+pop_col = col("Population")
+lat_col = col("Latitude")
+lon_col = col("Longitude")
+
+# Basic cleaning
+df = df[[cn_col, prov_col, pop_col, lat_col, lon_col]].copy()
+df.columns = ["City", "Province", "Population", "Latitude", "Longitude"]
+
+# Ensure numeric
+df["Population"] = pd.to_numeric(
+    df["Population"].astype(str).str.replace(",", ""), errors="coerce"
+)
+df["Latitude"] = pd.to_numeric(df["Latitude"], errors="coerce")
+df["Longitude"] = pd.to_numeric(df["Longitude"], errors="coerce")
+
+# Filter by population threshold
+df = df[df["Population"].notnull() & (df["Population"] >= POP_THRESHOLD)].reset_index(
+    drop=True
+)
+print(f"Kept {len(df)} cities with pop >= {POP_THRESHOLD}")
+
+
+# find source and sink indices (best-effort by substring)
+def find_city_index(substring):
+    substring_lower = substring.lower()
+    for i, name in enumerate(df["City"]):
+        if substring_lower in str(name).lower():
+            return i
+    return None
+
+
+s_idx = find_city_index(SOURCE_NAME)
+t_idx = find_city_index(SINK_NAME)
+if s_idx is None or t_idx is None:
+    raise ValueError(
+        f"Could not locate source/sink by substring: source='{SOURCE_NAME}', sink='{SINK_NAME}'. "
+        "Edit SOURCE_NAME / SINK_NAME to match City names in your CSV."
+    )
+
+source = df.loc[s_idx, "City"]
+sink = df.loc[t_idx, "City"]
+print("Source:", source, "Sink:", sink)
+
+# ---------------------
+# Build candidate edges (undirected i<j)
+# ---------------------
+nodes = list(df["City"])
+n = len(nodes)
+coords = {nodes[i]: (df.loc[i, "Latitude"], df.loc[i, "Longitude"]) for i in range(n)}
+pop = {nodes[i]: int(df.loc[i, "Population"]) for i in range(n)}
+
+# compute pairwise distances and keep edges <= MAX_EDGE_DIST_KM
+edges = []
+dist = {}
+for i, j in itertools.combinations(range(n), 2):
+    city_i = nodes[i]
+    city_j = nodes[j]
+    lat_i, lon_i = coords[city_i]
+    lat_j, lon_j = coords[city_j]
+    d = chord_distance_km(lat_i, lon_i, lat_j, lon_j)
+    if d <= MAX_EDGE_DIST_KM:
+        edges.append((city_i, city_j))
+        dist[(city_i, city_j)] = d
+        dist[(city_j, city_i)] = d  # convenience
+
+print(
+    f"Candidate undirected edges kept (distance <= {MAX_EDGE_DIST_KM} km): {len(edges)}"
+)
+
+# ---------------------
+# Precompute parameters for objective
+# ---------------------
+# Station cost per city (two tiers)
+station_cost = {}
+for c in nodes:
+    station_cost[c] = STATION_COST_LARGE if pop[c] >= 1_000_000 else STATION_COST_SMALL
+
+# Expected monthly ridership (baseline)
+# r_c = CAPTURE_RATE * population * x_c
+# Revenue per passenger: fare_per_km * AVG_TRIP_KM
+fare_per_passenger = FARE_PER_KM * AVG_TRIP_KM
+op_cost_per_passenger = OP_COST_PER_PASSENGER
+
+# ---------------------
+# Build Gurobi model
+# ---------------------
+m = Model("hsr_path_design")
+
+# Decision variables
+x = m.addVars(nodes, vtype=GRB.BINARY, name="x")  # station built at city c
+e = m.addVars(edges, vtype=GRB.BINARY, name="e")  # undirected edge selected (i<j)
+# we will create directed flow variables for each ordered pair where edge exists (two directions)
+arc_list = []
+for i, j in edges:
+    arc_list.append((i, j))
+    arc_list.append((j, i))
+f = m.addVars(arc_list, vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name="f")  # unit flow
+
+# Objective: monthly profit = revenue - track_cost - station_cost - op_cost
+# revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
+# op_cost = op_cost_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
+revenue_expr = (
+    fare_per_passenger * CAPTURE_RATE * quicksum(pop[c] * x[c] for c in nodes)
+)
+opcost_expr = (
+    op_cost_per_passenger * CAPTURE_RATE * quicksum(pop[c] * x[c] for c in nodes)
+)
+
+track_cost_expr = quicksum(COST_PER_KM * dist[(i, j)] * e[(i, j)] for (i, j) in edges)
+station_cost_expr = quicksum(station_cost[c] * x[c] for c in nodes)
+
+m.setObjective(
+    revenue_expr - track_cost_expr - station_cost_expr - opcost_expr, GRB.MAXIMIZE
+)
+
+# ---------------------
+# Constraints
+# ---------------------
+
+# 1) If an edge is selected, both endpoints must have stations
+for i, j in edges:
+    m.addConstr(e[(i, j)] <= x[i], name=f"edge_uses_station_{i}_{j}_i")
+    m.addConstr(e[(i, j)] <= x[j], name=f"edge_uses_station_{i}_{j}_j")
+
+# 2) If station exists, it must have at least one incident selected edge (unless it's source or sink)
+#    (this prevents isolated stations)
+incident_map = {c: [] for c in nodes}
+for i, j in edges:
+    incident_map[i].append((i, j))
+    incident_map[j].append((i, j))
+for c in nodes:
+    # source and sink can have degree 1, others degree 0 or 2 (we'll enforce at least 1 if x[c]==1)
+    if c not in (source, sink):
+        m.addConstr(
+            quicksum(e[eij] for eij in incident_map[c]) >= x[c],
+            name=f"station_incident_{c}",
+        )
+
+# 3) Flow conservation: send 1 unit from source to sink (directed flow on arcs)
+for c in nodes:
+    inflow = quicksum(f[(i, c)] for i in nodes if (i, c) in f)
+    outflow = quicksum(f[(c, j)] for j in nodes if (c, j) in f)
+    if c == source:
+        m.addConstr(outflow - inflow == 1.0, name="flow_source")
+    elif c == sink:
+        m.addConstr(inflow - outflow == 1.0, name="flow_sink")
+    else:
+        m.addConstr(outflow - inflow == 0.0, name=f"flow_conserv_{c}")
+
+# 4) Flow only on selected edges: for each directed arc (i->j), flow <= e[(min,max)]
+for i, j in arc_list:
+    und = (i, j) if (i, j) in e else (j, i)
+    # map to undirected key (i,j) sorted to the e key
+    key = (i, j) if (i, j) in e else (j, i)
+    m.addConstr(f[(i, j)] <= e[key], name=f"flow_edge_link_{i}_{j}")
+
+# 5) Source and sink stations must be built
+m.addConstr(x[source] == 1, name="source_station")
+m.addConstr(x[sink] == 1, name="sink_station")
+
+# 6) Optional: degree constraints to encourage a simple path (source deg=1, sink deg=1, others deg<=2)
+#    degree = sum incident e <= 2 for non source/sink
+for c in nodes:
+    deg = quicksum(e[eij] for eij in incident_map[c])
+    if c == source or c == sink:
+        m.addConstr(deg == 1, name=f"deg_1_{c}")
+    else:
+        m.addConstr(deg <= 2, name=f"deg_le2_{c}")
+
+# ---------------------
+# Solve
+# ---------------------
+m.params.OutputFlag = 1
+m.optimize()
+
+# ---------------------
+# Extract solution
+# ---------------------
+if m.Status == GRB.OPTIMAL or m.Status == GRB.TIME_LIMIT:
+    chosen_stations = [c for c in nodes if x[c].X > 0.5]
+    chosen_edges = [eij for eij in edges if e[eij].X > 0.5]
+    print("Stations chosen:", chosen_stations)
+    print("Edges chosen:", chosen_edges)
+    print("Objective (monthly profit):", m.ObjVal)
+else:
+    print("No optimal solution found. Status:", m.Status)
