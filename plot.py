@@ -11,6 +11,7 @@ from shapely.geometry import Point
 import pandas as pd
 import os
 import pathlib
+import json
 
 # === CONFIG ===
 CITIES_CSV_PATH = "data/cities_with_coordinates.csv"
@@ -115,16 +116,27 @@ def plot_map(
     figsize=(12, 10),
     show=True,
     city_links=None,
+    selected_cities=None,
 ):
     # --- Reproject to Canada Lambert Conformal Conic ---
     target_crs = "EPSG:3978"
     canada_gdf = canada_gdf.to_crs(target_crs)
     cities_gdf = cities_gdf.to_crs(target_crs)
 
-    # Calculate bounds for zooming (after projection)
-    bounds = calculate_bounds(
-        cities_gdf, padding_meters=50000
-    )  # padding in meters for projected CRS
+    # --- Choose which cities to display ---
+    if selected_cities is not None:
+        # Use list of cities given by the caller
+        cities_to_plot = cities_gdf[cities_gdf["City_Name"].isin(selected_cities)].copy()
+    elif city_links:
+        # only show cities that appear in the links
+        linked_cities = {c for pair in city_links for c in pair}
+        cities_to_plot = cities_gdf[cities_gdf["City_Name"].isin(linked_cities)].copy()
+    else:
+        # show all cities
+        cities_to_plot = cities_gdf
+
+    # Calculate bounds for zooming (after projection), based on the selected cities
+    bounds = calculate_bounds(cities_to_plot, padding_meters=50000)
 
     # Load fonts from static folder
     static_dir = load_fonts_from_static()
@@ -155,7 +167,7 @@ def plot_map(
     if city_links:
         # Create a dictionary mapping city names to their coordinates
         city_coords = {}
-        for _, row in cities_gdf.iterrows():
+        for _, row in cities_to_plot.iterrows():
             city_coords[row["City_Name"]] = (row.geometry.x, row.geometry.y)
 
         # Draw lines for each city pair
@@ -179,7 +191,7 @@ def plot_map(
                 )
 
     # Plot city markers
-    cities_gdf.plot(
+    cities_to_plot.plot(
         ax=ax,
         color=POINT_COLOR,
         marker=MARKER,
@@ -190,7 +202,7 @@ def plot_map(
     )
 
     # Add city labels for all cities
-    for _, row in cities_gdf.iterrows():
+    for _, row in cities_to_plot.iterrows():
         x, y = row.geometry.x, row.geometry.y
         ax.annotate(
             row["City_Name"],
@@ -231,6 +243,11 @@ def main():
         ("Gatineau", "Whitby"),
         ("Toronto", "Whitby"),
     ]
+    with open("solution.json") as f:
+        sol = json.load(f)
+
+    selected_cities = sol["stations"]
+    city_links = [tuple(e) for e in sol["edges"]]
 
     print("Loading cities from CSV...")
     cities_gdf = load_cities_from_csv(CITIES_CSV_PATH)
@@ -241,7 +258,10 @@ def main():
     print(f"Loaded map with {len(canada_gdf)} features")
 
     print("Plotting map...")
-    plot_map(canada_gdf, cities_gdf, city_links=city_links)
+    plot_map(canada_gdf,
+        cities_gdf,
+        city_links=city_links,
+        selected_cities=selected_cities,)
     print(f"✅ Saved map to {OUT_PNG}")
 
 

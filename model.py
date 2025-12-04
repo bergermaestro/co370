@@ -4,6 +4,7 @@ import itertools
 import pandas as pd
 import numpy as np
 from gurobipy import Model, GRB, quicksum
+import json 
 
 
 CSV_PATH = (
@@ -247,5 +248,11 @@ if m.Status == GRB.OPTIMAL or m.Status == GRB.TIME_LIMIT:
     print("Stations chosen:", chosen_stations)
     print("Edges chosen:", chosen_edges)
     print("Objective (monthly profit):", m.ObjVal)
+    solution = {
+        "stations": chosen_stations,               
+        "edges": [list(eij) for eij in chosen_edges],  
+    }
+    with open("solution.json", "w") as f:
+        json.dump(solution, f)
 else:
     print("No optimal solution found. Status:", m.Status)
