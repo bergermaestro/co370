@@ -18,8 +18,8 @@ EARTH_R = 6371.0  # Earth radius in km (used to convert lat/lon -> chord)
 
 # Costs & fares (change to experiment)
 COST_PER_KM = 80_000_000.0  # CAD per kilometre (construction)
-STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
-STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
+# STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
+# STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
 FARE_PER_KM = 0.15  # CAD per passenger per km (European-HSR-like)
 AVG_TRIP_KM = 150.0  # assume average trip length for revenue calc (you can refine)
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
@@ -114,6 +114,10 @@ nodes = list(df["City"])
 n = len(nodes)
 coords = {nodes[i]: (df.loc[i, "Latitude"], df.loc[i, "Longitude"]) for i in range(n)}
 pop = {nodes[i]: int(df.loc[i, "Population"]) for i in range(n)}
+longitude = {c: coords[c][1] for c in nodes}  # coords[c] = (lat, lon)
+
+# Longitude of each city c
+longitude = {nodes[i]: float(df.loc[i, "Longitude"]) for i in range(n)}
 
 # compute pairwise distances and keep edges <= MAX_EDGE_DIST_KM
 edges = []
@@ -136,10 +140,14 @@ print(
 # ---------------------
 # Precompute parameters for objective
 # ---------------------
-# Station cost per city (two tiers)
-station_cost = {}
-for c in nodes:
-    station_cost[c] = STATION_COST_LARGE if pop[c] >= 1_000_000 else STATION_COST_SMALL
+# Station cost per city (variable)
+
+y = {c: (1 if pop[c] >= 1_000_000 else 0) for c in nodes}    # binary variable for calculating station cost
+
+station_cost = {
+    c: 50_000_000.0 + 150_000_000.0 * y[c]
+    for c in nodes
+    }
 
 # Expected monthly ridership (baseline)
 # r_c = CAPTURE_RATE * population * x_c
@@ -161,6 +169,16 @@ for i, j in edges:
     arc_list.append((i, j))
     arc_list.append((j, i))
 f = m.addVars(arc_list, vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name="f")  # unit flow
+
+# Longitude: only between Toronto and Québec City ---
+toronto_long = longitude[source]
+quebec_long  = longitude[sink]
+
+for c in nodes:
+    if c != source:
+        m.addConstr(longitude[c] * x[c] >= toronto_long * x[c])
+    if c != sink:
+        m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
 
 # Objective: monthly profit = revenue - track_cost - station_cost - op_cost
 # revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
