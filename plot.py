@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 from matplotlib.font_manager import FontProperties
 from shapely.geometry import Point
+from adjustText import adjust_text
 import pandas as pd
 import os
 import pathlib
@@ -201,20 +202,28 @@ def plot_map(
         zorder=3,
     )
 
-    # Add city labels for all cities
+    # Add city labels for all cities (no overlap)
+    texts = []
     for _, row in cities_to_plot.iterrows():
         x, y = row.geometry.x, row.geometry.y
-        ax.annotate(
-            row["City_Name"],
-            xy=(x, y),
-            xytext=(4, 2),
-            textcoords="offset points",
-            fontproperties=font_prop,
-            color=TEXT_COLOR,
-            ha="left",
-            va="bottom",
-            zorder=4,
+        texts.append(
+            ax.text(
+                x, y,
+                row["City_Name"],
+                fontsize=7,
+                fontproperties=font_prop,
+                color=POINT_COLOR,
+                zorder=5,
+            )
         )
+
+    # Automatically adjust labels to avoid overlap
+    adjust_text(
+        texts,
+        ax=ax,
+        arrowprops=dict(arrowstyle="-", color=POINT_COLOR, lw=0.5)
+    )
+
 
     # Set axis limits to zoom in on cities
     ax.set_xlim(bounds["minx"], bounds["maxx"])
