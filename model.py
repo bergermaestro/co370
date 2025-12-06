@@ -208,25 +208,18 @@ m.setObjective(
 for i, j in edges:
     m.addConstr(e[(i, j)] <= x[i], name=f"edge_uses_station_{i}_{j}_i")
     m.addConstr(e[(i, j)] <= x[j], name=f"edge_uses_station_{i}_{j}_j")
-
-# 2) If station exists, it must have at least one incident selected edge (unless it's source or sink)
-#    (this prevents isolated stations)
+# create a map city to edges 
 incident_map = {c: [] for c in nodes}
 for i, j in edges:
     incident_map[i].append((i, j))
     incident_map[j].append((i, j))
-for c in nodes:
-    # source and sink can have degree 1, others degree 0 or 2 (we'll enforce at least 1 if x[c]==1)
-    if c not in (source, sink):
-        m.addConstr(
-            quicksum(e[eij] for eij in incident_map[c]) >= x[c],
-            name=f"station_incident_{c}",
-        )
 
 # 3) Flow conservation: send 1 unit from source to sink (directed flow on arcs)
 for c in nodes:
     inflow = quicksum(f[(i, c)] for i in nodes if (i, c) in f)
     outflow = quicksum(f[(c, j)] for j in nodes if (c, j) in f)
+
+    # Flow conservation
     if c == source:
         m.addConstr(outflow - inflow == 1.0, name="flow_source")
     elif c == sink:
@@ -245,14 +238,49 @@ for i, j in arc_list:
 m.addConstr(x[source] == 1, name="source_station")
 m.addConstr(x[sink] == 1, name="sink_station")
 
-# 6) Optional: degree constraints to encourage a simple path (source deg=1, sink deg=1, others deg<=2)
-#    degree = sum incident e <= 2 for non source/sink
+# 6) Degree constraints to enforce a simple path
 for c in nodes:
     deg = quicksum(e[eij] for eij in incident_map[c])
     if c == source or c == sink:
         m.addConstr(deg == 1, name=f"deg_1_{c}")
     else:
-        m.addConstr(deg <= 2, name=f"deg_le2_{c}")
+        m.addConstr(deg == 2 * x[c], name=f"deg_internal_{c}")
+
+# 7) Number of selected edges = number of selected stations – 1 
+# this is what we had in the proposal, it doesn't forbid one valid path + a loop disconnected from the path
+
+m.addConstr(
+    quicksum(e[eij] for eij in edges) == quicksum(x[c] for c in nodes) - 1)
+
+# 8) Connectivity via longitude:
+# Every selected city (except the source) must be connected by at least one
+# selected edge to a city lying strictly to its west (smaller longitude).
+# Since Toronto is the westernmost allowed city, this forces every selected city to be in the same
+# connected component as Toronto, and rules out disconnected loops.
+
+for c in nodes:
+    if c == source:
+        continue  # Toronto is the western anchor; no constraint needed
+
+    # Collect edges from c to cities that are strictly west of c
+    edges_to_west = []
+    for (i, j) in incident_map[c]:
+        other = j if i == c else i
+        if longitude[other] < longitude[c]:
+            edges_to_west.append(e[(i, j)])
+
+    if edges_to_west:
+        # If c is selected (x[c] = 1), at least one westward edge must be selected.
+        m.addConstr(
+            quicksum(edges_to_west) >= x[c],
+            name=f"connect_west_{c}",
+        )
+    else:
+        # If there is no candidate westward neighbour in the graph, c can never be selected.
+        m.addConstr(
+            x[c] == 0,
+            name=f"cannot_select_{c}_no_west_neighbor",
+        )
 
 # ---------------------
 # Solve
