@@ -17,13 +17,14 @@ MAX_EDGE_DIST_KM = (
 EARTH_R = 6371.0  # Earth radius in km (used to convert lat/lon -> chord)
 
 # Costs & fares (change to experiment)
-COST_PER_KM = 80_000_000.0  # CAD per kilometre (construction)
+COST_PER_KM = 20_000_000.0  # CAD per kilometre (construction)
+AMORTIZATION_YEARS = 40
 # STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
 # STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
-FARE_PER_KM = 0.15  # CAD per passenger per km (European-HSR-like)
-AVG_TRIP_KM = 150.0  # assume average trip length for revenue calc (you can refine)
+FARE_PER_KM = 0.30  # CAD per passenger per km (European-HSR-like)
+AVG_TRIP_KM = 300.0  # assume average trip length for revenue calc (you can refine)
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
-CAPTURE_RATE = 0.005  # baseline monthly ridership fraction of population (0.5%)
+CAPTURE_RATE = 0.04  # baseline monthly ridership fraction of population (0.5%)
 
 SOURCE_NAME = "Toronto"  # must match substring in City_Name column
 SINK_NAME = "Québec"  # or "Québec", match substring
@@ -180,7 +181,9 @@ for c in nodes:
     if c != sink:
         m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
 
-# Objective: monthly profit = revenue - track_cost - station_cost - op_cost
+monthly_cost_per_km = COST_PER_KM / (AMORTIZATION_YEARS*12)
+monthly_cost_station = {c: station_cost[c] / (AMORTIZATION_YEARS * 12) for c in nodes}
+# Objective: monthly profit = revenue - track_cost_monthly - station_cost_monthly - op_cost
 # revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
 # op_cost = op_cost_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
 revenue_expr = (
@@ -190,8 +193,8 @@ opcost_expr = (
     op_cost_per_passenger * CAPTURE_RATE * quicksum(pop[c] * x[c] for c in nodes)
 )
 
-track_cost_expr = quicksum(COST_PER_KM * dist[(i, j)] * e[(i, j)] for (i, j) in edges)
-station_cost_expr = quicksum(station_cost[c] * x[c] for c in nodes)
+track_cost_expr = quicksum(monthly_cost_per_km * dist[(i, j)] * e[(i, j)] for (i, j) in edges)
+station_cost_expr = quicksum(monthly_cost_station[c] * x[c] for c in nodes)
 
 m.setObjective(
     revenue_expr - track_cost_expr - station_cost_expr - opcost_expr, GRB.MAXIMIZE
