@@ -146,6 +146,14 @@ y = {
 }  # binary variable for calculating station cost
 
 station_cost = {c: 50_000_000.0 + 150_000_000.0 * y[c] for c in nodes}
+y_c1 = {c: (1 if pop[c] < 250_000 else 0) for c in nodes}    # binary variable for calculating station cost
+y_c2 = {c: (1 if (pop[c] >= 250_000 and pop[c] <=750_000) else 0) for c in nodes} 
+y_c3 = {c: (1 if pop[c] > 750_000 else 0) for c in nodes} 
+
+station_cost = {
+    c: 33_307_342 * y_c1[c] + 86_285_660 * y_c2[c] + 148_453_987 * y_c3[c]
+    for c in nodes
+    }
 
 # Expected monthly ridership (baseline)
 # r_c = ALPHA * population * x_c
@@ -317,6 +325,35 @@ for c in nodes:
         )
     else:
         m.addConstr(r[c] == 0, name=f"ridership_zero_{c}")
+# 8) Population constraint
+for c in nodes:
+
+    m.addConstr(
+        y_c1[c] * pop[c] <= 249_999,
+        name=f"y1_upper_{c}"
+    )
+
+    m.addConstr(
+        250_000 * y_c2[c] <= pop[c] * y_c2[c],
+        name=f"y2_lower_{c}"
+    )
+
+    m.addConstr(
+        pop[c] * y_c2[c] <= 750_000 * y_c2[c],
+        name=f"y2_upper_{c}"
+    )
+
+    m.addConstr(
+        750_001 * y_c3[c] <= pop[c] * y_c3[c],
+        name=f"y3_lower_{c}"
+    )
+
+    m.addConstr(
+        y_c1[c] + y_c2[c] + y_c3[c] == 1,
+        name=f"city_has_one_size{c}",
+    )
+
+
 
 # ---------------------
 # Solve
