@@ -246,12 +246,7 @@ def plot_map(
 
 def main():
     # City pairs to connect with lines
-    city_links = [
-        ("Québec", "Trois-Rivières"),
-        ("Gatineau", "Trois-Rivières"),
-        ("Gatineau", "Whitby"),
-        ("Toronto", "Whitby"),
-    ]
+
     with open("solution.json") as f:
         sol = json.load(f)
 

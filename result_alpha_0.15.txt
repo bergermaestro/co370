@@ -87,7 +87,7 @@ Solution count 6: 4.76937e+10 4.6795e+10 4.63948e+10 ... -1.19415e+10
 Optimal solution found (tolerance 1.00e-04)
 Best objective 4.769371723881e+10, best bound 4.769371723881e+10, gap 0.0000%
 
-Selected cities and their r:
+Selected cities and their ridership:
 Montréal: r = 354246.69
 Québec: r = 108064.91999999998
 Laval: r = 69059.4

@@ -16,12 +16,11 @@ EARTH_R = 6371.0  # Earth radius in km (used to convert lat/lon -> chord)
 
 # Costs & fares (change to experiment)
 COST_PER_KM = 51_634_834.0  # CAD per kilometre (construction)
-AMORTIZATION_YEARS = 40
 # STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
 # STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
 FARE = 100.0  # CAD per passenger per trip
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
-ALPHA = 0.05  # baseline monthly ridership fraction of population (0.5%)
+ALPHA = 0.1  # baseline monthly ridership fraction of population (0.5%)
 R = 35  # catchment radius in km
 
 SOURCE_NAME = "Toronto"  # must match substring in City_Name column
@@ -294,7 +293,7 @@ for c in nodes:
         m.addConstr(
             r[c]
             == quicksum(
-                (0.05 * pop[u] if c == u else 0.04 * pop[u]) * a[(c, u)]
+                (ALPHA * pop[u] if c == u else ALPHA * 0.8 * pop[u]) * a[(c, u)]
                 for (c, u) in assigns_for_c
             ),
             name=f"ridership_{c}",
@@ -350,11 +349,23 @@ m.setObjective(480 * m_rev - capex, GRB.MAXIMIZE)
 m.params.OutputFlag = 1
 m.optimize()
 
-print("\n=== All a[c,u] values ===")
+m.optimize()
 
-for (c, u) in a.keys():
-    if a[c, u].X > 0.5:     # only non-zero will be printed
-        print(f"a[{c}, {u}] = 1")
+total_r = 0.0
+print("\nSelected cities and their ridership:")
+for c in nodes:
+    if x[c].X > 0.5:   # city is selected
+        rc = r[c].X
+        total_r += rc
+        print(f"{c}: r = {rc}")
+
+print(f"\nTotal r over selected cities = {total_r}")
+
+# print("\n=== All a[c,u] values ===")
+
+# for (c, u) in a.keys():
+#     if a[c, u].X > 0.5:     # only non-zero will be printed
+#         print(f"a[{c}, {u}] = 1")
 
 # ---------------------
 # Extract solution
@@ -364,7 +375,7 @@ if m.Status == GRB.OPTIMAL or m.Status == GRB.TIME_LIMIT:
     chosen_edges = [eij for eij in edges if e[eij].X > 0.5]
     print("Stations chosen:", chosen_stations)
     print("Edges chosen:", chosen_edges)
-    print("Objective (monthly profit):", m.ObjVal)
+    print("Objective value:", m.ObjVal)
     solution = {
         "stations": chosen_stations,
         "edges": [list(eij) for eij in chosen_edges],
