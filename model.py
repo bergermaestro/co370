@@ -146,14 +146,16 @@ y = {
 }  # binary variable for calculating station cost
 
 station_cost = {c: 50_000_000.0 + 150_000_000.0 * y[c] for c in nodes}
-y_c1 = {c: (1 if pop[c] < 250_000 else 0) for c in nodes}    # binary variable for calculating station cost
-y_c2 = {c: (1 if (pop[c] >= 250_000 and pop[c] <=750_000) else 0) for c in nodes} 
-y_c3 = {c: (1 if pop[c] > 750_000 else 0) for c in nodes} 
+y_c1 = {
+    c: (1 if pop[c] < 250_000 else 0) for c in nodes
+}  # binary variable for calculating station cost
+y_c2 = {c: (1 if (pop[c] >= 250_000 and pop[c] <= 750_000) else 0) for c in nodes}
+y_c3 = {c: (1 if pop[c] > 750_000 else 0) for c in nodes}
 
 station_cost = {
     c: 33_307_342 * y_c1[c] + 86_285_660 * y_c2[c] + 148_453_987 * y_c3[c]
     for c in nodes
-    }
+}
 
 # Expected monthly ridership (baseline)
 # r_c = ALPHA * population * x_c
@@ -177,11 +179,16 @@ assign_pairs = [
     for u in nodes
     if (c == u) or ((c, u) in dist and dist[(c, u)] <= R)
 ]
+
+# print(f"Assign pairs: {assign_pairs}")
+
 a = m.addVars(assign_pairs, vtype=GRB.BINARY, name="a")
 
 # ridership variable per station c: monthly ridership r_c
 r = m.addVars(nodes, vtype=GRB.CONTINUOUS, lb=0.0, name="r")
 m_rev = m.addVar(vtype=GRB.CONTINUOUS, lb=0.0, name="m_rev")
+capex = m.addVar(vtype=GRB.CONTINUOUS, lb=0.0, name="capex")
+P = m.addVar(vtype=GRB.CONTINUOUS, name="P")
 
 # we will create directed flow variables for each ordered pair where edge exists (two directions)
 arc_list = []
@@ -189,38 +196,6 @@ for i, j in edges:
     arc_list.append((i, j))
     arc_list.append((j, i))
 f = m.addVars(arc_list, vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name="f")  # unit flow
-
-# Longitude: only between Toronto and Québec City ---
-toronto_long = longitude[source]
-quebec_long = longitude[sink]
-
-for c in nodes:
-    if c != source:
-        m.addConstr(longitude[c] * x[c] >= toronto_long * x[c])
-    if c != sink:
-        m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
-
-# Monthly revenue: m_rev = sum_c fare * r_c
-m.addConstr(m_rev == quicksum(FARE * r[c] for c in nodes), name="m_rev_def")
-
-monthly_cost_per_km = COST_PER_KM / (AMORTIZATION_YEARS * 12)
-monthly_cost_station = {c: station_cost[c] / (AMORTIZATION_YEARS * 12) for c in nodes}
-# Objective: monthly profit = revenue - track_cost_monthly - station_cost_monthly - op_cost
-# revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (ALPHA * pop[c] * x[c])
-# op_cost = op_cost_per_passenger * sum_c (ALPHA * pop[c] * x[c])
-
-revenue_expr = 480 * m_rev
-
-opcost_expr = op_cost_per_passenger * ALPHA * quicksum(pop[c] * x[c] for c in nodes)
-
-track_cost_expr = quicksum(
-    monthly_cost_per_km * dist[(i, j)] * e[(i, j)] for (i, j) in edges
-)
-station_cost_expr = quicksum(monthly_cost_station[c] * x[c] for c in nodes)
-
-m.setObjective(
-    revenue_expr - track_cost_expr - station_cost_expr - opcost_expr, GRB.MAXIMIZE
-)
 
 # ---------------------
 # Constraints
@@ -325,34 +300,47 @@ for c in nodes:
         )
     else:
         m.addConstr(r[c] == 0, name=f"ridership_zero_{c}")
+
+# Cities West of Toronto and East of Quebec City may not be chosen
+toronto_long = longitude[source]
+quebec_long = longitude[sink]
+
+for c in nodes:
+    if c != source:
+        m.addConstr(longitude[c] * x[c] >= toronto_long * x[c])
+    if c != sink:
+        m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
+
+
 # 8) Population constraint
 for c in nodes:
+    m.addConstr(y_c1[c] * pop[c] <= 249_999, name=f"y1_upper_{c}")
 
-    m.addConstr(
-        y_c1[c] * pop[c] <= 249_999,
-        name=f"y1_upper_{c}"
-    )
+    m.addConstr(250_000 * y_c2[c] <= pop[c] * y_c2[c], name=f"y2_lower_{c}")
 
-    m.addConstr(
-        250_000 * y_c2[c] <= pop[c] * y_c2[c],
-        name=f"y2_lower_{c}"
-    )
+    m.addConstr(pop[c] * y_c2[c] <= 750_000 * y_c2[c], name=f"y2_upper_{c}")
 
-    m.addConstr(
-        pop[c] * y_c2[c] <= 750_000 * y_c2[c],
-        name=f"y2_upper_{c}"
-    )
-
-    m.addConstr(
-        750_001 * y_c3[c] <= pop[c] * y_c3[c],
-        name=f"y3_lower_{c}"
-    )
+    m.addConstr(750_001 * y_c3[c] <= pop[c] * y_c3[c], name=f"y3_lower_{c}")
 
     m.addConstr(
         y_c1[c] + y_c2[c] + y_c3[c] == 1,
         name=f"city_has_one_size{c}",
     )
 
+# Monthly revenue: m_rev = sum_c fare * r_c
+m.addConstr(m_rev == quicksum(FARE * r[c] for c in nodes), name="m_rev_def")
+
+# Capital cost: capex = sum_{(i,j) in A} cost_per_km * d_ij * e_{i j} + sum_c station_cost_c * x_c
+
+# ---------------------
+# Objective
+# ---------------------
+
+station_cost_expr = quicksum(station_cost[c] * x[c] for c in nodes)
+track_cost_expr = quicksum(COST_PER_KM * dist[(i, j)] * e[(i, j)] for (i, j) in edges)
+capex = track_cost_expr + station_cost_expr
+
+m.setObjective(480 * m_rev - capex, GRB.MAXIMIZE)
 
 
 # ---------------------
