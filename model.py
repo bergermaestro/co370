@@ -4,12 +4,10 @@ import itertools
 import pandas as pd
 import numpy as np
 from gurobipy import Model, GRB, quicksum
-import json 
+import json
 
 
-CSV_PATH = (
-    "data/cities_with_coordinates.csv" 
-)
+CSV_PATH = "data/cities_with_coordinates.csv"
 POP_THRESHOLD = 50000  # keep only cities with population >= 50,000
 MAX_EDGE_DIST_KM = (
     350  # only consider connecting cities within this straight-line distance
@@ -17,14 +15,13 @@ MAX_EDGE_DIST_KM = (
 EARTH_R = 6371.0  # Earth radius in km (used to convert lat/lon -> chord)
 
 # Costs & fares (change to experiment)
-COST_PER_KM = 20_000_000.0  # CAD per kilometre (construction)
+COST_PER_KM = 51_634_834.0  # CAD per kilometre (construction)
 AMORTIZATION_YEARS = 40
 # STATION_COST_SMALL = 50_000_000.0  # CAD for small station (population < 1,000,000)
 # STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
-FARE_PER_KM = 0.30  # CAD per passenger per km (European-HSR-like)
-AVG_TRIP_KM = 300.0  # assume average trip length for revenue calc (you can refine)
+FARE = 100.0  # CAD per passenger per trip
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
-CAPTURE_RATE = 0.04  # baseline monthly ridership fraction of population (0.5%)
+ALPHA = 0.05  # baseline monthly ridership fraction of population (0.5%)
 
 SOURCE_NAME = "Toronto"  # must match substring in City_Name column
 SINK_NAME = "Québec"  # or "Québec", match substring
@@ -143,17 +140,16 @@ print(
 # ---------------------
 # Station cost per city (variable)
 
-y = {c: (1 if pop[c] >= 1_000_000 else 0) for c in nodes}    # binary variable for calculating station cost
+y = {
+    c: (1 if pop[c] >= 1_000_000 else 0) for c in nodes
+}  # binary variable for calculating station cost
 
-station_cost = {
-    c: 50_000_000.0 + 150_000_000.0 * y[c]
-    for c in nodes
-    }
+station_cost = {c: 50_000_000.0 + 150_000_000.0 * y[c] for c in nodes}
 
 # Expected monthly ridership (baseline)
-# r_c = CAPTURE_RATE * population * x_c
+# r_c = ALPHA * population * x_c
 # Revenue per passenger: fare_per_km * AVG_TRIP_KM
-fare_per_passenger = FARE_PER_KM * AVG_TRIP_KM
+fare_per_passenger = FARE
 op_cost_per_passenger = OP_COST_PER_PASSENGER
 
 # ---------------------
@@ -173,7 +169,7 @@ f = m.addVars(arc_list, vtype=GRB.CONTINUOUS, lb=0.0, ub=1.0, name="f")  # unit 
 
 # Longitude: only between Toronto and Québec City ---
 toronto_long = longitude[source]
-quebec_long  = longitude[sink]
+quebec_long = longitude[sink]
 
 for c in nodes:
     if c != source:
@@ -181,19 +177,17 @@ for c in nodes:
     if c != sink:
         m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
 
-monthly_cost_per_km = COST_PER_KM / (AMORTIZATION_YEARS*12)
+monthly_cost_per_km = COST_PER_KM / (AMORTIZATION_YEARS * 12)
 monthly_cost_station = {c: station_cost[c] / (AMORTIZATION_YEARS * 12) for c in nodes}
 # Objective: monthly profit = revenue - track_cost_monthly - station_cost_monthly - op_cost
-# revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
-# op_cost = op_cost_per_passenger * sum_c (CAPTURE_RATE * pop[c] * x[c])
-revenue_expr = (
-    fare_per_passenger * CAPTURE_RATE * quicksum(pop[c] * x[c] for c in nodes)
-)
-opcost_expr = (
-    op_cost_per_passenger * CAPTURE_RATE * quicksum(pop[c] * x[c] for c in nodes)
-)
+# revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (ALPHA * pop[c] * x[c])
+# op_cost = op_cost_per_passenger * sum_c (ALPHA * pop[c] * x[c])
+revenue_expr = fare_per_passenger * ALPHA * quicksum(pop[c] * x[c] for c in nodes)
+opcost_expr = op_cost_per_passenger * ALPHA * quicksum(pop[c] * x[c] for c in nodes)
 
-track_cost_expr = quicksum(monthly_cost_per_km * dist[(i, j)] * e[(i, j)] for (i, j) in edges)
+track_cost_expr = quicksum(
+    monthly_cost_per_km * dist[(i, j)] * e[(i, j)] for (i, j) in edges
+)
 station_cost_expr = quicksum(monthly_cost_station[c] * x[c] for c in nodes)
 
 m.setObjective(
@@ -208,7 +202,7 @@ m.setObjective(
 for i, j in edges:
     m.addConstr(e[(i, j)] <= x[i], name=f"edge_uses_station_{i}_{j}_i")
     m.addConstr(e[(i, j)] <= x[j], name=f"edge_uses_station_{i}_{j}_j")
-# create a map city to edges 
+# create a map city to edges
 incident_map = {c: [] for c in nodes}
 for i, j in edges:
     incident_map[i].append((i, j))
@@ -246,11 +240,10 @@ for c in nodes:
     else:
         m.addConstr(deg == 2 * x[c], name=f"deg_internal_{c}")
 
-# 7) Number of selected edges = number of selected stations – 1 
+# 7) Number of selected edges = number of selected stations – 1
 # this is what we had in the proposal, it doesn't forbid one valid path + a loop disconnected from the path
 
-m.addConstr(
-    quicksum(e[eij] for eij in edges) == quicksum(x[c] for c in nodes) - 1)
+m.addConstr(quicksum(e[eij] for eij in edges) == quicksum(x[c] for c in nodes) - 1)
 
 # 8) Connectivity via longitude:
 # Every selected city (except the source) must be connected by at least one
@@ -264,7 +257,7 @@ for c in nodes:
 
     # Collect edges from c to cities that are strictly west of c
     edges_to_west = []
-    for (i, j) in incident_map[c]:
+    for i, j in incident_map[c]:
         other = j if i == c else i
         if longitude[other] < longitude[c]:
             edges_to_west.append(e[(i, j)])
@@ -298,8 +291,8 @@ if m.Status == GRB.OPTIMAL or m.Status == GRB.TIME_LIMIT:
     print("Edges chosen:", chosen_edges)
     print("Objective (monthly profit):", m.ObjVal)
     solution = {
-        "stations": chosen_stations,               
-        "edges": [list(eij) for eij in chosen_edges],  
+        "stations": chosen_stations,
+        "edges": [list(eij) for eij in chosen_edges],
     }
     with open("solution.json", "w") as f:
         json.dump(solution, f)
