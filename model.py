@@ -22,6 +22,7 @@ AMORTIZATION_YEARS = 40
 FARE = 100.0  # CAD per passenger per trip
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
 ALPHA = 0.05  # baseline monthly ridership fraction of population (0.5%)
+R = 35  # catchment radius in km
 
 SOURCE_NAME = "Toronto"  # must match substring in City_Name column
 SINK_NAME = "Québec"  # or "Québec", match substring
@@ -160,6 +161,20 @@ m = Model("hsr_path_design")
 # Decision variables
 x = m.addVars(nodes, vtype=GRB.BINARY, name="x")  # station built at city c
 e = m.addVars(edges, vtype=GRB.BINARY, name="e")  # undirected edge selected (i<j)
+
+# a_{c,u} only if dist(c,u) <= R (assignment of city u served by station at c)
+assign_pairs = [
+    (c, u)
+    for c in nodes
+    for u in nodes
+    if (c == u) or ((c, u) in dist and dist[(c, u)] <= R)
+]
+a = m.addVars(assign_pairs, vtype=GRB.BINARY, name="a")
+
+# ridership variable per station c: monthly ridership r_c
+r = m.addVars(nodes, vtype=GRB.CONTINUOUS, lb=0.0, name="r")
+m_rev = m.addVar(vtype=GRB.CONTINUOUS, lb=0.0, name="m_rev")
+
 # we will create directed flow variables for each ordered pair where edge exists (two directions)
 arc_list = []
 for i, j in edges:
@@ -177,12 +192,17 @@ for c in nodes:
     if c != sink:
         m.addConstr(longitude[c] * x[c] <= quebec_long * x[c])
 
+# Monthly revenue: m_rev = sum_c fare * r_c
+m.addConstr(m_rev == quicksum(FARE * r[c] for c in nodes), name="m_rev_def")
+
 monthly_cost_per_km = COST_PER_KM / (AMORTIZATION_YEARS * 12)
 monthly_cost_station = {c: station_cost[c] / (AMORTIZATION_YEARS * 12) for c in nodes}
 # Objective: monthly profit = revenue - track_cost_monthly - station_cost_monthly - op_cost
 # revenue = sum_c fare_per_passenger * r_c = fare_per_passenger * sum_c (ALPHA * pop[c] * x[c])
 # op_cost = op_cost_per_passenger * sum_c (ALPHA * pop[c] * x[c])
-revenue_expr = fare_per_passenger * ALPHA * quicksum(pop[c] * x[c] for c in nodes)
+
+revenue_expr = 480 * m_rev
+
 opcost_expr = op_cost_per_passenger * ALPHA * quicksum(pop[c] * x[c] for c in nodes)
 
 track_cost_expr = quicksum(
@@ -198,10 +218,16 @@ m.setObjective(
 # Constraints
 # ---------------------
 
+# Source and sink stations must be built
+m.addConstr(x[source] == 1, name="source_station")
+m.addConstr(x[sink] == 1, name="sink_station")
+
 # 1) If an edge is selected, both endpoints must have stations
 for i, j in edges:
     m.addConstr(e[(i, j)] <= x[i], name=f"edge_uses_station_{i}_{j}_i")
     m.addConstr(e[(i, j)] <= x[j], name=f"edge_uses_station_{i}_{j}_j")
+
+
 # create a map city to edges
 incident_map = {c: [] for c in nodes}
 for i, j in edges:
@@ -227,10 +253,6 @@ for i, j in arc_list:
     # map to undirected key (i,j) sorted to the e key
     key = (i, j) if (i, j) in e else (j, i)
     m.addConstr(f[(i, j)] <= e[key], name=f"flow_edge_link_{i}_{j}")
-
-# 5) Source and sink stations must be built
-m.addConstr(x[source] == 1, name="source_station")
-m.addConstr(x[sink] == 1, name="sink_station")
 
 # 6) Degree constraints to enforce a simple path
 for c in nodes:
@@ -274,6 +296,27 @@ for c in nodes:
             x[c] == 0,
             name=f"cannot_select_{c}_no_west_neighbor",
         )
+
+# Each city can only be assigned to at most one station
+for u in nodes:
+    assigns = [a[(c, u)] for (c, u2) in assign_pairs if u2 == u]
+    if assigns:
+        m.addConstr(quicksum(assigns) <= 1, name=f"assign_once_{u}")
+
+# A city can only be served by a city with a station
+for c, u in assign_pairs:
+    m.addConstr(a[(c, u)] <= x[c], name=f"assign_requires_station_{c}_{u}")
+
+# Monthly ridership per station: r_c = sum_{u} alpha * pop_u * a_{c u}
+for c in nodes:
+    assigns_for_c = [(c, u) for (c2, u) in assign_pairs if c2 == c]
+    if assigns_for_c:
+        m.addConstr(
+            r[c] == quicksum(ALPHA * pop[u] * a[(c, u)] for (c, u) in assigns_for_c),
+            name=f"ridership_{c}",
+        )
+    else:
+        m.addConstr(r[c] == 0, name=f"ridership_zero_{c}")
 
 # ---------------------
 # Solve
