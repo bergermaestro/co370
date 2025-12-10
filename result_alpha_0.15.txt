@@ -45,7 +45,7 @@ Cutting planes:
   RLT: 1
   BQP: 2
 
-Explored 1 nodes (633 simplex iterations) in 0.07 seconds (0.10 work units)
+Explored 1 nodes (633 simplex iterations) in 0.06 seconds (0.10 work units)
 Thread count was 10 (of 10 available processors)
 
 Solution count 6: 4.76937e+10 4.6795e+10 4.63948e+10 ... -1.19415e+10

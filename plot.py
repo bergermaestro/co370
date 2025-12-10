@@ -13,6 +13,8 @@ import pandas as pd
 import os
 import pathlib
 import json
+import numpy as np
+
 
 # === CONFIG ===
 CITIES_CSV_PATH = "data/cities_with_coordinates.csv"
@@ -190,7 +192,6 @@ def plot_map(
                 print(
                     f"Warning: Could not find city coordinates for: {', '.join(missing)}"
                 )
-
     # Plot city markers
     cities_to_plot.plot(
         ax=ax,
@@ -202,27 +203,34 @@ def plot_map(
         zorder=3,
     )
 
-    # Add city labels for all cities (no overlap)
-    texts = []
-    for _, row in cities_to_plot.iterrows():
-        x, y = row.geometry.x, row.geometry.y
-        texts.append(
-            ax.text(
-                x, y,
-                row["City_Name"],
-                fontsize=7,
-                fontproperties=font_prop,
-                color=POINT_COLOR,
-                zorder=5,
-            )
-        )
+    # Simple global offset for all labels (meters in EPSG:3978)
+    LABEL_DX = 7000   # move a bit to the right
+    LABEL_DY = 7000   # move a bit up
 
-    # Automatically adjust labels to avoid overlap
-    adjust_text(
-        texts,
-        ax=ax,
-        arrowprops=dict(arrowstyle="-", color=POINT_COLOR, lw=0.5)
-    )
+    # --- Radial label placement to avoid overlap automatically ---
+    LABEL_DISTANCE = 35000  # meters from the point
+
+    n = len(cities_to_plot)
+    angles = np.linspace(0, 2*np.pi, n, endpoint=False)
+
+    for angle, (_, row) in zip(angles, cities_to_plot.iterrows()):
+        name = row["City_Name"]
+        x, y = row.geometry.x, row.geometry.y
+
+        dx = LABEL_DISTANCE * np.cos(angle)
+        dy = LABEL_DISTANCE * np.sin(angle)
+
+        ax.text(
+            x + dx,
+            y + dy,
+            name,
+            fontsize=25,
+            fontproperties=font_prop,
+            color=POINT_COLOR,
+            zorder=5,
+            ha="center",
+            va="center",
+        )
 
 
     # Set axis limits to zoom in on cities
@@ -265,7 +273,10 @@ def main():
     plot_map(canada_gdf,
         cities_gdf,
         city_links=city_links,
-        selected_cities=selected_cities,)
+        selected_cities=selected_cities,
+        show=False,
+        )
+    
     print(f"✅ Saved map to {OUT_PNG}")
 
 

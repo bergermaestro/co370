@@ -1,0 +1,104 @@
+Kept 73 cities with pop >= 50000
+Source: Toronto Sink: Québec
+Candidate undirected edges kept (distance <= 350 km): 1302
+Set parameter Username
+Set parameter LicenseID to value 2708110
+Academic license - for non-commercial use only - expires 2026-09-12
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (mac64[arm] - Darwin 25.1.0 25B78)
+
+CPU model: Apple M1 Pro
+Thread count: 10 physical cores, 10 logical processors, using up to 10 threads
+
+Optimize a model with 6446 rows, 4416 columns and 22756 nonzeros
+Model fingerprint: 0xec7adedc
+Variable types: 2680 continuous, 1736 integer (1736 binary)
+Coefficient statistics:
+  Matrix range     [3e-02, 3e+04]
+  Objective range  [5e+02, 2e+10]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Warning: Model contains large objective coefficients
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolve removed 4564 rows and 2997 columns
+Presolve time: 0.03s
+Presolved: 1882 rows, 1419 columns, 7236 nonzeros
+Variable types: 768 continuous, 651 integer (651 binary)
+Found heuristic solution: objective -1.03445e+11
+
+Root relaxation: objective -3.303886e+10, 624 iterations, 0.01 seconds (0.02 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 -3.304e+10    0   55 -1.034e+11 -3.304e+10  68.1%     -    0s
+H    0     0                    -3.42929e+10 -3.304e+10  3.66%     -    0s
+H    0     0                    -3.41656e+10 -3.304e+10  3.30%     -    0s
+H    0     0                    -3.37910e+10 -3.304e+10  2.23%     -    0s
+H    0     0                    -3.37005e+10 -3.307e+10  1.88%     -    0s
+     0     0 -3.317e+10    0   45 -3.370e+10 -3.317e+10  1.57%     -    0s
+     0     0 -3.324e+10    0   14 -3.370e+10 -3.324e+10  1.38%     -    0s
+H    0     0                    -3.35507e+10 -3.324e+10  0.93%     -    0s
+H    0     0                    -3.33096e+10 -3.324e+10  0.22%     -    0s
+
+Cutting planes:
+  Network: 4
+  RLT: 1
+  BQP: 1
+
+Explored 1 nodes (1141 simplex iterations) in 0.10 seconds (0.14 work units)
+Thread count was 10 (of 10 available processors)
+
+Solution count 7: -3.33096e+10 -3.35507e+10 -3.37005e+10 ... -1.03445e+11
+No other solutions better than -3.33096e+10
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -3.330961541199e+10, best bound -3.330961541199e+10, gap -0.0000%
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (mac64[arm] - Darwin 25.1.0 25B78)
+
+CPU model: Apple M1 Pro
+Thread count: 10 physical cores, 10 logical processors, using up to 10 threads
+
+Optimize a model with 6446 rows, 4416 columns and 22756 nonzeros
+Model fingerprint: 0xec7adedc
+Variable types: 2680 continuous, 1736 integer (1736 binary)
+Coefficient statistics:
+  Matrix range     [3e-02, 3e+04]
+  Objective range  [5e+02, 2e+10]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Warning: Model contains large objective coefficients
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolved: 1882 rows, 1419 columns, 7236 nonzeros
+
+Continuing optimization...
+
+
+Cutting planes:
+  Network: 4
+  RLT: 1
+  BQP: 1
+
+Explored 1 nodes (1141 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 10 (of 10 available processors)
+
+Solution count 7: -3.33096e+10 -3.35507e+10 -3.37005e+10 ... -1.03445e+11
+No other solutions better than -3.33096e+10
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -3.330961541199e+10, best bound -3.330961541199e+10, gap -0.0000%
+
+Selected cities and their ridership:
+Québec: r = 7204.328
+Trois-Rivières: r = 1906.248
+Mascouche: r = 26574.809999999998
+Toronto: r = 55652.67800000001
+Ottawa: r = 13981.102
+Oshawa: r = 5819.2
+
+Total r over selected cities = 111138.36600000001
+Stations chosen: ['Québec', 'Trois-Rivières', 'Mascouche', 'Toronto', 'Ottawa', 'Oshawa']
+Edges chosen: [('Québec', 'Trois-Rivières'), ('Trois-Rivières', 'Mascouche'), ('Mascouche', 'Ottawa'), ('Toronto', 'Oshawa'), ('Ottawa', 'Oshawa')]
+Objective value: -33309615411.98604
