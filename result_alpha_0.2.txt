@@ -1,0 +1,110 @@
+Kept 73 cities with pop >= 50000
+Source: Toronto Sink: Québec
+Candidate undirected edges kept (distance <= 350 km): 1302
+Set parameter Username
+Set parameter LicenseID to value 2708110
+Academic license - for non-commercial use only - expires 2026-09-12
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (mac64[arm] - Darwin 25.1.0 25B78)
+
+CPU model: Apple M1 Pro
+Thread count: 10 physical cores, 10 logical processors, using up to 10 threads
+
+Optimize a model with 6446 rows, 4416 columns and 22756 nonzeros
+Model fingerprint: 0xc6db0419
+Variable types: 2680 continuous, 1736 integer (1736 binary)
+Coefficient statistics:
+  Matrix range     [3e-02, 7e+05]
+  Objective range  [5e+02, 2e+10]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Warning: Model contains large objective coefficients
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolve removed 4564 rows and 2997 columns
+Presolve time: 0.03s
+Presolved: 1882 rows, 1419 columns, 7236 nonzeros
+Variable types: 768 continuous, 651 integer (651 binary)
+Found heuristic solution: objective 2.073853e+10
+
+Root relaxation: objective 7.812040e+10, 644 iterations, 0.01 seconds (0.02 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 7.8120e+10    0   73 2.0739e+10 7.8120e+10   277%     -    0s
+H    0     0                    7.423334e+10 7.8120e+10  5.24%     -    0s
+H    0     0                    7.519999e+10 7.8120e+10  3.88%     -    0s
+H    0     0                    7.591405e+10 7.8120e+10  2.91%     -    0s
+H    0     0                    7.761289e+10 7.8120e+10  0.65%     -    0s
+     0     0     cutoff    0      7.7613e+10 7.7613e+10 -0.00%     -    0s
+
+Cutting planes:
+  Gomory: 3
+  Zero half: 10
+  RLT: 1
+
+Explored 1 nodes (706 simplex iterations) in 0.06 seconds (0.10 work units)
+Thread count was 10 (of 10 available processors)
+
+Solution count 5: 7.76129e+10 7.5914e+10 7.52e+10 ... 2.07385e+10
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.761289147881e+10, best bound 7.761289147881e+10, gap 0.0000%
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (mac64[arm] - Darwin 25.1.0 25B78)
+
+CPU model: Apple M1 Pro
+Thread count: 10 physical cores, 10 logical processors, using up to 10 threads
+
+Optimize a model with 6446 rows, 4416 columns and 22756 nonzeros
+Model fingerprint: 0xc6db0419
+Variable types: 2680 continuous, 1736 integer (1736 binary)
+Coefficient statistics:
+  Matrix range     [3e-02, 7e+05]
+  Objective range  [5e+02, 2e+10]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Warning: Model contains large objective coefficients
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolved: 1882 rows, 1419 columns, 7236 nonzeros
+
+Continuing optimization...
+
+
+Cutting planes:
+  Gomory: 3
+  Zero half: 10
+  RLT: 1
+
+Explored 1 nodes (706 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 10 (of 10 available processors)
+
+Solution count 5: 7.76129e+10 7.5914e+10 7.52e+10 ... 2.07385e+10
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 7.761289147881e+10, best bound 7.761289147881e+10, gap 0.0000%
+
+Selected cities and their ridership:
+Montréal: r = 472328.9200000001
+Québec: r = 144086.56
+Laval: r = 92079.2
+Gatineau: r = 61066.8
+Longueuil: r = 62251.520000000004
+Trois-Rivières: r = 38124.96000000001
+Mirabel: r = 36873.76000000001
+Saint-Hyacinthe: r = 23631.8
+Toronto: r = 1036014.3600000002
+Ottawa: r = 230768.6
+Markham: r = 116817.36
+Oshawa: r = 41481.6
+Whitby: r = 31771.0
+Ajax: r = 27768.6
+Clarington: r = 22712.8
+Pickering: r = 22677.0
+Peterborough: r = 32809.68000000001
+
+Total r over selected cities = 2493264.5200000005
+Stations chosen: ['Montréal', 'Québec', 'Laval', 'Gatineau', 'Longueuil', 'Trois-Rivières', 'Mirabel', 'Saint-Hyacinthe', 'Toronto', 'Ottawa', 'Markham', 'Oshawa', 'Whitby', 'Ajax', 'Clarington', 'Pickering', 'Peterborough']
+Edges chosen: [('Montréal', 'Laval'), ('Montréal', 'Longueuil'), ('Québec', 'Trois-Rivières'), ('Laval', 'Mirabel'), ('Gatineau', 'Ottawa'), ('Gatineau', 'Peterborough'), ('Longueuil', 'Saint-Hyacinthe'), ('Trois-Rivières', 'Saint-Hyacinthe'), ('Mirabel', 'Ottawa'), ('Toronto', 'Markham'), ('Markham', 'Pickering'), ('Oshawa', 'Whitby'), ('Oshawa', 'Clarington'), ('Whitby', 'Ajax'), ('Ajax', 'Pickering'), ('Clarington', 'Peterborough')]
+Objective value: 77612891478.80984

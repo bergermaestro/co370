@@ -20,7 +20,7 @@ COST_PER_KM = 51_634_834.0  # CAD per kilometre (construction)
 # STATION_COST_LARGE = 200_000_000.0  # CAD for large station (population >= 1,000,000)
 FARE = 100.0  # CAD per passenger per trip
 OP_COST_PER_PASSENGER = 5.0  # CAD per passenger operating cost per trip (monthly basis)
-ALPHA = 0.1  # baseline monthly ridership fraction of population (0.5%)
+ALPHA = 0.2  # baseline monthly ridership fraction of population (0.5%)
 R = 35  # catchment radius in km
 
 SOURCE_NAME = "Toronto"  # must match substring in City_Name column
