@@ -1,0 +1,95 @@
+Kept 73 cities with pop >= 50000
+Source: Toronto Sink: Québec
+Candidate undirected edges kept (distance <= 350 km): 1302
+Set parameter Username
+Set parameter LicenseID to value 2708110
+Academic license - for non-commercial use only - expires 2026-09-12
+Set parameter OutputFlag to value 1
+Gurobi Optimizer version 12.0.0 build v12.0.0rc1 (mac64[arm] - Darwin 25.1.0 25B78)
+
+CPU model: Apple M1 Pro
+Thread count: 10 physical cores, 10 logical processors, using up to 10 threads
+
+Optimize a model with 6446 rows, 4416 columns and 22756 nonzeros
+Model fingerprint: 0x6c1668eb
+Variable types: 2680 continuous, 1736 integer (1736 binary)
+Coefficient statistics:
+  Matrix range     [3e-02, 2e+05]
+  Objective range  [5e+02, 2e+10]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Warning: Model contains large objective coefficients
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Presolve removed 4564 rows and 2997 columns
+Presolve time: 0.03s
+Presolved: 1882 rows, 1419 columns, 7236 nonzeros
+Variable types: 768 continuous, 651 integer (651 binary)
+Found heuristic solution: objective -7.73015e+10
+
+Root relaxation: objective -1.109622e+10, 728 iterations, 0.01 seconds (0.02 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 -1.110e+10    0  113 -7.730e+10 -1.110e+10  85.6%     -    0s
+H    0     0                    -1.53089e+10 -1.110e+10  27.5%     -    0s
+H    0     0                    -1.26914e+10 -1.110e+10  12.6%     -    0s
+H    0     0                    -1.19555e+10 -1.110e+10  7.19%     -    0s
+H    0     0                    -1.18089e+10 -1.110e+10  6.04%     -    0s
+     0     0 -1.124e+10    0   99 -1.181e+10 -1.124e+10  4.84%     -    0s
+     0     0 -1.129e+10    0   56 -1.181e+10 -1.129e+10  4.42%     -    0s
+H    0     0                    -1.17356e+10 -1.129e+10  3.82%     -    0s
+H    0     0                    -1.17032e+10 -1.129e+10  3.55%     -    0s
+H    0     0                    -1.16557e+10 -1.129e+10  3.16%     -    0s
+     0     0 -1.136e+10    0   42 -1.166e+10 -1.136e+10  2.51%     -    0s
+     0     0 -1.146e+10    0   23 -1.166e+10 -1.146e+10  1.67%     -    0s
+*    0     0               0    -1.15088e+10 -1.151e+10  0.00%     -    0s
+
+Explored 1 nodes (1554 simplex iterations) in 0.13 seconds (0.15 work units)
+Thread count was 10 (of 10 available processors)
+
+Solution count 10: -1.15088e+10 -1.16557e+10 -1.17032e+10 ... -1.53089e+10
+No other solutions better than -1.15088e+10
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective -1.150883583067e+10, best bound -1.150883583067e+10, gap 0.0000%
+
+=== All a[c,u] values ===
+a[Montréal, Montréal] = 1
+a[Montréal, Terrebonne] = 1
+a[Montréal, Saint-Jean-sur-Richelieu] = 1
+a[Montréal, Brossard] = 1
+a[Montréal, Repentigny] = 1
+a[Montréal, Blainville] = 1
+a[Montréal, Mascouche] = 1
+a[Montréal, Châteauguay] = 1
+a[Montréal, Dollard-Des Ormeaux] = 1
+a[Québec, Québec] = 1
+a[Québec, Lévis] = 1
+a[Laval, Laval] = 1
+a[Laval, Longueuil] = 1
+a[Laval, Saint-Jérôme] = 1
+a[Laval, Mirabel] = 1
+a[Gatineau, Gatineau] = 1
+a[Trois-Rivières, Trois-Rivières] = 1
+a[Trois-Rivières, Shawinigan] = 1
+a[Toronto, Toronto] = 1
+a[Toronto, Mississauga] = 1
+a[Toronto, Brampton] = 1
+a[Toronto, Markham] = 1
+a[Toronto, Vaughan] = 1
+a[Toronto, Oakville] = 1
+a[Toronto, Richmond Hill] = 1
+a[Toronto, Pickering] = 1
+a[Ottawa, Ottawa] = 1
+a[Oshawa, Oshawa] = 1
+a[Oshawa, Whitchurch-Stouffville] = 1
+a[Whitby, Whitby] = 1
+a[Ajax, Ajax] = 1
+a[Ajax, Clarington] = 1
+a[Peterborough, Peterborough] = 1
+a[Peterborough, Kawartha Lakes] = 1
+Stations chosen: ['Montréal', 'Québec', 'Laval', 'Gatineau', 'Trois-Rivières', 'Toronto', 'Ottawa', 'Oshawa', 'Whitby', 'Ajax', 'Peterborough']
+Edges chosen: [('Montréal', 'Laval'), ('Montréal', 'Trois-Rivières'), ('Québec', 'Trois-Rivières'), ('Laval', 'Ottawa'), ('Gatineau', 'Ottawa'), ('Gatineau', 'Peterborough'), ('Toronto', 'Ajax'), ('Oshawa', 'Whitby'), ('Oshawa', 'Peterborough'), ('Whitby', 'Ajax')]
+Objective (monthly profit): -11508835830.673725

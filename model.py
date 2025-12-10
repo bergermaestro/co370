@@ -141,11 +141,8 @@ print(
 # ---------------------
 # Station cost per city (variable)
 
-y = {
-    c: (1 if pop[c] >= 1_000_000 else 0) for c in nodes
-}  # binary variable for calculating station cost
 
-station_cost = {c: 50_000_000.0 + 150_000_000.0 * y[c] for c in nodes}
+
 y_c1 = {
     c: (1 if pop[c] < 250_000 else 0) for c in nodes
 }  # binary variable for calculating station cost
@@ -352,6 +349,12 @@ m.setObjective(480 * m_rev - capex, GRB.MAXIMIZE)
 # ---------------------
 m.params.OutputFlag = 1
 m.optimize()
+
+print("\n=== All a[c,u] values ===")
+
+for (c, u) in a.keys():
+    if a[c, u].X > 0.5:     # only non-zero will be printed
+        print(f"a[{c}, {u}] = 1")
 
 # ---------------------
 # Extract solution
