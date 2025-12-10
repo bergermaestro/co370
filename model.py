@@ -295,7 +295,11 @@ for c in nodes:
     assigns_for_c = [(c, u) for (c2, u) in assign_pairs if c2 == c]
     if assigns_for_c:
         m.addConstr(
-            r[c] == quicksum(ALPHA * pop[u] * a[(c, u)] for (c, u) in assigns_for_c),
+            r[c]
+            == quicksum(
+                (0.05 * pop[u] if c == u else 0.04 * pop[u]) * a[(c, u)]
+                for (c, u) in assigns_for_c
+            ),
             name=f"ridership_{c}",
         )
     else:
